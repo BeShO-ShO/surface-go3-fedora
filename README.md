@@ -10,6 +10,9 @@ caused them and how I fixed or worked around each one. Everything uses the **sto
 | OS | Fedora 45 Workstation, GNOME 51 (Wayland), kernel 7.3 |
 | Boot | rEFInd 0.14.2 → shim (Secure Boot) → GRUB / Windows Boot Manager |
 
+<p align="center"><img src="images/refind-menu-mockup.png" width="600" alt="rEFInd boot menu (mock-up)"><br>
+<sub>rEFInd boot menu with a dark theme that matches the firmware splash (mock-up). <a href="issues/refind-dual-boot.md">Details</a></sub></p>
+
 ## Index
 
 Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug

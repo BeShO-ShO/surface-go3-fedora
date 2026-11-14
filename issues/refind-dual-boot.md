@@ -1,5 +1,9 @@
 # rEFInd on a Secure Boot Surface Go 3: dark theme, Windows black screen, shim warning, backup
 
+![rEFInd menu with the minimal-taichi-dark theme (mock-up)](../images/refind-menu-mockup.png)
+*Mock-up of the menu, rendered at the panel's 1920×1280. The real menu matches it; a real screenshot is still to come.
+The Windows logo in the middle is the firmware's BGRT logo, at the firmware's exact position.*
+
 Setup: rEFInd 0.14.2 chain-loaded through **shim** (Secure Boot on), signed with a locally
 generated key enrolled as a MOK. The screen is 1920×1280. Windows was installed first, then Fedora, sharing one ESP.
 
