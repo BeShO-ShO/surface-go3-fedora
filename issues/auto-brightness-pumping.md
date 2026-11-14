@@ -1,6 +1,6 @@
 # Auto-brightness jumps around in dim rooms
 
-**Status:** ✅ Worked around with a custom user service (on trial)
+**Status:** ✅ Fixed with a small GNOME Shell extension (Smooth Brightness)
 
 ## Symptom
 With GNOME's *Automatic Screen Brightness* on, the screen keeps stepping 15–25 % up and down in a dim
@@ -11,24 +11,40 @@ At ~14–27 lux the Surface Go 3's ambient light sensor reports in **3.43-lux st
 one step is a big relative change, and GNOME follows each one. GNOME 51 has no smoothing setting.
 
 ## Fix
-Turn off GNOME's ambient brightness and run [`smooth-brightness`](../fixes/brightness/smooth-brightness)
-instead. It's a small Python/Gio daemon:
-- reads lux from `iio-sensor-proxy` every 500 ms and takes a 3 s median of log-lux
-- waits until the target has held steady (±3 points) for 3 s, then does **one** 4 s smoothstep fade
-- ignores changes smaller than 6 points
-- sets brightness through logind `Session.SetBrightness`, so it needs no root
-- learns manual slider changes as a personal bias
-- pauses while the session is idle so GNOME's idle-dim still works
+Install the **Smooth Brightness** GNOME Shell extension in
+[`fixes/brightness/`](../fixes/brightness/). It takes over from GNOME's ambient brightness and uses
+GNOME 51's own auto-brightness hook, so the brightness slider, brightness keys and idle-dim all
+keep working normally.
 
 ```sh
-gsettings set org.gnome.settings-daemon.plugins.power ambient-enabled false
-install -m 755 fixes/brightness/smooth-brightness ~/.local/bin/
-install -m 644 fixes/brightness/smooth-brightness.service ~/.config/systemd/user/
-systemctl --user daemon-reload && systemctl --user enable --now smooth-brightness
-journalctl --user -u smooth-brightness -f      # set SMOOTH_BRIGHTNESS_DEBUG=1 for detail
+cd fixes/brightness && ./install.sh     # then log out and back in
+./install.sh --remove                   # uninstall, GNOME auto-brightness back on
 ```
 
-Known limit: GNOME's brightness slider can show a stale value.
-To revert: `systemctl --user disable --now smooth-brightness` and set `ambient-enabled` back to `true`.
+What it does:
+- reads lux from `iio-sensor-proxy` every 500 ms and takes a **2 s median** of log-lux, so a hand,
+  shadow or flicker never starts a change
+- does **one 5 s fade** to the new level, and if the light changes again mid-fade it **turns
+  around** from where it is (no snap, no staircase)
+- ignores changes smaller than 6 points
+- uses the **full range**: 1 % in darkness up to 100 % at 2000 lux and above (0 % would switch this
+  panel's backlight off)
+- the **brightness slider is your preference**: 50 % is neutral, higher bends the curve brighter,
+  lower dimmer. The ends stay at 1 % and 100 %. GNOME saves the slider across reboots.
+
+| Light | Slider 25 % | Slider 50 % | Slider 75 % |
+|---|---|---|---|
+| ~7 lux (dim room) | 8 % | 28 % | 53 % |
+| ~150 lux (indoor) | 44 % | 66 % | 81 % |
+| 2000+ lux | 100 % | 100 % | 100 % |
+
+Debug log: `mkdir -p ~/.config/smooth-brightness && touch ~/.config/smooth-brightness/debug`, log out
+and back in, then `journalctl --user -f -o cat /usr/bin/gnome-shell | grep smooth-brightness`.
+
+Limits: GNOME Shell 51 only (it relies on 51's `BrightnessManager`). In total darkness the slider has
+no effect (the curve pins 0 lux to 1 %).
+
+History: first version was a Python user service writing through logind. It worked, but GNOME's
+slider showed stale values and idle-dim needed special handling, so it became an extension.
 
 Tip: the ALS's iio index changes between boots. To find it: `grep -l als /sys/bus/iio/devices/iio:device*/name`

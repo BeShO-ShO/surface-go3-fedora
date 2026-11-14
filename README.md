@@ -23,7 +23,7 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 | [Type Cover touchpad stalls suspend 10 s (`usbhid suspend error -5`)](issues/typecover-sleep-eio.md) | ✅ sleep hook |
 | [Type Cover touchpad dead after boot / keys dead after attach](issues/typecover-dead-after-boot.md) | ⚠️ re-attach |
 | [Won't charge when plugged in after booting on battery (`ucsi_acpi PPM init failed`)](issues/charging-hotplug.md) | ⚠️ boot with charger in |
-| [Auto-brightness jumps around in dim light](issues/auto-brightness-pumping.md) | ✅ custom service |
+| [Auto-brightness jumps around in dim light](issues/auto-brightness-pumping.md) | ✅ extension |
 | [Auto-rotate off with cover attached / stuck after resume](issues/auto-rotate.md) | ℹ️ / ✅ |
 | [Volume rocker doesn't repeat when held (`intel-hid`)](issues/volume-rocker-hold.md) | ⚠️ |
 | [Touchscreen misses taps on the couch](issues/touchscreen-dead-spots.md) | ℹ️ grounding |
@@ -46,7 +46,7 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 ```
 fixes/
 ├── sleep/50-surface-typecover-touchpad     systemd sleep hook → /usr/lib/systemd/system-sleep/
-├── brightness/smooth-brightness(.service)  ambient brightness replacement (user service)
+├── brightness/                          Smooth Brightness extension + install.sh
 ├── refind/                                 dark theme.conf, install/backup/restore scripts
 └── onscreen-touchpad/                      helper patch, uinput udev rule
 ```
