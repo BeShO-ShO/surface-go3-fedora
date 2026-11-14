@@ -1,0 +1,33 @@
+#!/bin/sh
+# Local fix (added 2026-11-13): the Surface Go 3 Type Cover touchpad interface
+# (045e:09b5, interface 1.3, hid-multitouch) never completes its suspend I/O:
+# usbhid waits 10 s, fails with -EIO, and the cover often resumes dead or drops
+# off USB. Unbind that interface from usbhid before sleep and re-probe after
+# resume. The keyboard interfaces stay bound, so a keypress can still wake.
+# To undo: delete this file.
+STATE=/run/surface-typecover-touchpad.unbound
+DRV=/sys/bus/usb/drivers/usbhid
+
+case "$1" in
+pre)
+    rm -f "$STATE"
+    for i in /sys/bus/usb/devices/*:1.3; do
+        [ -e "$i" ] || continue
+        d=${i%:1.3}
+        [ "$(cat "$d/idVendor" 2>/dev/null):$(cat "$d/idProduct" 2>/dev/null)" = "045e:09b5" ] || continue
+        [ -e "$i/driver" ] || continue
+        n=$(basename "$i")
+        echo "$n" > "$DRV/unbind" && echo "$n" >> "$STATE"
+    done
+    ;;
+post)
+    [ -f "$STATE" ] || exit 0
+    while read -r n; do
+        if [ -e "/sys/bus/usb/devices/$n" ] && [ ! -e "/sys/bus/usb/devices/$n/driver" ]; then
+            echo "$n" > "$DRV/bind" 2>/dev/null
+        fi
+    done < "$STATE"
+    rm -f "$STATE"
+    ;;
+esac
+exit 0

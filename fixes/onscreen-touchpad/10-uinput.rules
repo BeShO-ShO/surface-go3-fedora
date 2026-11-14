@@ -1,0 +1,3 @@
+# Make /dev/uinput readable/writable by the "input" group so the On-Screen
+# Touchpad helper can create its virtual mouse without root.
+KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"

@@ -1,0 +1,13 @@
+[Unit]
+Description=Smooth ambient-light screen brightness
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/smooth-brightness
+# Environment=SMOOTH_BRIGHTNESS_DEBUG=1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
