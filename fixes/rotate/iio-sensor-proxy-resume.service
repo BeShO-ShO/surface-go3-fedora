@@ -1,0 +1,12 @@
+# /etc/systemd/system/iio-sensor-proxy-resume.service
+# then: systemctl daemon-reload && systemctl enable iio-sensor-proxy-resume.service
+[Unit]
+Description=Restart iio-sensor-proxy after resume (rotation froze after s2idle)
+After=suspend.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl try-restart iio-sensor-proxy.service
+
+[Install]
+WantedBy=suspend.target

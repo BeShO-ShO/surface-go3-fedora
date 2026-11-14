@@ -35,6 +35,7 @@ cp "$(dirname "$0")/restore.sh" "$(dirname "$0")/README.txt" "$OUT/"
 chown -R $U:$U "$OUT"
 tar -C "$H" -czf "$H/refind-backup-$STAMP.tar.gz" refind-backup
 chown $U:$U "$H/refind-backup-$STAMP.tar.gz"
+chmod 600 "$H/refind-backup-$STAMP.tar.gz"
 echo; find "$OUT" -maxdepth 2 | sort
 echo; ls -lh "$H/refind-backup-$STAMP.tar.gz"
 echo DONE

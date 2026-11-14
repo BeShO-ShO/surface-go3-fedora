@@ -1,0 +1,31 @@
+--- a/hid.c
++++ b/hid.c
+@@ -17,7 +17,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/string_choices.h>
+ #include <linux/suspend.h>
+-#include "../dual_accel_detect.h"
++#include "dual_accel_detect.h"
+ 
+ enum intel_hid_tablet_sw_mode {
+ 	TABLET_SW_AUTO = -1,
+@@ -655,6 +655,19 @@
+ 	if (report_tablet_mode_event(priv->switches, event))
+ 		return;
+ 
++	/*
++	 * Local patch (intel-hid-volhold): report real press/release for the
++	 * volume rocker (0xC4/0xC6 press, 0xC5/0xC7 release) instead of an
++	 * instant auto-release, so holding the button repeats.
++	 */
++	if (priv->array && event >= 0xc4 && event <= 0xc7) {
++		input_report_key(priv->array,
++				 event < 0xc6 ? KEY_VOLUMEUP : KEY_VOLUMEDOWN,
++				 !(event & 1));
++		input_sync(priv->array);
++		return;
++	}
++
+ 	/* 0xC0 is for HID events, other values are for 5 button array */
+ 	if (event != 0xc0) {
+ 		if (!priv->array ||

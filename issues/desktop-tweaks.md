@@ -48,3 +48,11 @@ Things learned while building it:
 - Skipped `powertop --auto-tune`: USB autosuspend makes the Type Cover flaky.
 - Only s2idle is available. Hibernate is blocked by Secure Boot lockdown, and the system has zram-only swap.
 - Battery: 28.4 Wh design, 94 % health. Linux battery life was better than a fresh Windows install's estimate.
+
+## Small system tweaks
+- Set a static hostname (`hostnamectl set-hostname …`). Without one the machine took the ISP's
+  reverse-DNS name, which then shows up in every journal line.
+- zram swap with zstd instead of the default lzo-rle: `/etc/systemd/zram-generator.conf` with
+  `compression-algorithm = zstd`.
+- Disabled `NetworkManager-wait-online` (~6 s of boot, nothing here needs it) and `ModemManager` (no modem).
+- Journal capped with `SystemMaxUse=200M` in `/etc/systemd/journald.conf.d/`.

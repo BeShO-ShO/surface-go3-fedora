@@ -25,7 +25,8 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 | [USB-C won't charge when plugged in after booting on battery (`ucsi_acpi PPM init failed`)](issues/charging-hotplug.md) | ⚠️ magnetic charger, or shut down + power on |
 | [Auto-brightness jumps around in dim light](issues/auto-brightness-pumping.md) | ✅ extension |
 | [Auto-rotate off with cover attached / stuck after resume](issues/auto-rotate.md) | ℹ️ / ✅ |
-| [Volume rocker doesn't repeat when held (`intel-hid`)](issues/volume-rocker-hold.md) | ⚠️ |
+| [Volume rocker doesn't repeat when held (`intel-hid`)](issues/volume-rocker-hold.md) | ✅ DKMS patch |
+| [Cameras](issues/cameras.md) | ℹ️ work on stock kernel |
 | [Touchscreen misses taps on the couch](issues/touchscreen-dead-spots.md) | ℹ️ grounding |
 
 ### Boot & dual boot
@@ -40,13 +41,15 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 |---|---|
 | [On-Screen Touchpad extension: GNOME 51 port + grabbed the Type Cover touchpad](issues/onscreen-touchpad.md) | ✅ patch |
 | [On-screen keyboard (Tabula OSK), dock + TouchUp gestures, power tweaks](issues/desktop-tweaks.md) | ✅ patch |
-| [Chrome loses profile sign-in (oo7 secret service)](issues/chrome-signin-keyring.md) | ⚠️ |
+| [Chrome loses profile sign-in (oo7 secret service)](issues/chrome-signin-keyring.md) | ✅ autologin off |
 
 ## Fix files
 ```
 fixes/
 ├── sleep/50-surface-typecover-touchpad     systemd sleep hook → /usr/lib/systemd/system-sleep/
-├── login/                                  Type Cover USB reset at login (script + unit)  
+├── login/                                  Type Cover USB reset at login (script + unit)
+├── volume-rocker/                          intel-hid hold-repeat patch + DKMS install.sh
+├── rotate/                                 restart iio-sensor-proxy after resume
 ├── touchup/dash-to-dock-v110.patch         TouchUp ↔ Dash to Dock v110 fix
 ├── brightness/                          Smooth Brightness extension + install.sh
 ├── refind/                                 dark theme.conf, install/backup/restore scripts
