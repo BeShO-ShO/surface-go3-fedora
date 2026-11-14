@@ -21,7 +21,7 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 | Issue | Status |
 |---|---|
 | [Type Cover touchpad stalls suspend 10 s (`usbhid suspend error -5`)](issues/typecover-sleep-eio.md) | ✅ sleep hook |
-| [Type Cover touchpad dead after boot / keys dead after attach](issues/typecover-dead-after-boot.md) | ⚠️ re-attach |
+| [Type Cover touchpad dead after boot / login, keys dead after attach](issues/typecover-dead-after-boot.md) | ✅ login re-probe / ⚠️ re-attach |
 | [Won't charge when plugged in after booting on battery (`ucsi_acpi PPM init failed`)](issues/charging-hotplug.md) | ⚠️ boot with charger in |
 | [Auto-brightness jumps around in dim light](issues/auto-brightness-pumping.md) | ✅ extension |
 | [Auto-rotate off with cover attached / stuck after resume](issues/auto-rotate.md) | ℹ️ / ✅ |
@@ -39,13 +39,15 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 | Issue | Status |
 |---|---|
 | [On-Screen Touchpad extension: GNOME 51 port + grabbed the Type Cover touchpad](issues/onscreen-touchpad.md) | ✅ patch |
-| [On-screen keyboard (Tabula OSK), dock, power tweaks](issues/desktop-tweaks.md) | ✅ |
+| [On-screen keyboard (Tabula OSK), dock + TouchUp gestures, power tweaks](issues/desktop-tweaks.md) | ✅ patch |
 | [Chrome loses profile sign-in (oo7 secret service)](issues/chrome-signin-keyring.md) | ⚠️ |
 
 ## Fix files
 ```
 fixes/
 ├── sleep/50-surface-typecover-touchpad     systemd sleep hook → /usr/lib/systemd/system-sleep/
+├── login/                                  touchpad re-probe at login (script + systemd unit)
+├── touchup/dash-to-dock-v110.patch         TouchUp ↔ Dash to Dock v110 fix
 ├── brightness/                          Smooth Brightness extension + install.sh
 ├── refind/                                 dark theme.conf, install/backup/restore scripts
 └── onscreen-touchpad/                      helper patch, uinput udev rule

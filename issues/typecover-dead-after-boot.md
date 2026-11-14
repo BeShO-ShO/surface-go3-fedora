@@ -1,13 +1,39 @@
 # Type Cover touchpad dead after boot / keys dead right after attaching
 
-**Status:** ⚠️ Open, workaround: detach and re-attach the cover
+**Status:** ✅ Symptom A (touchpad dead after boot / login): login re-probe service ·
+⚠️ Symptom B (keys dead after attach): re-attach
 
-## Symptom A: touchpad dead after boot
-In about 4 of 15 boots the touchpad gives no pointer. The keyboard works. Detaching and re-attaching fixes it.
+## Symptom A: touchpad dead after boot or after logging out and back in
+In about 4 of 15 boots, and on 2 of 5 logout → login cycles, the touchpad gives no pointer. The keyboard
+works. Detaching and re-attaching fixes it.
 - The touchpad always enumerates (~1.9 s), with no USB errors.
 - Raw evdev on the touchpad node is silent even with nothing grabbing it, so this is device/kernel, not GNOME.
-- On every boot `hid-generic` binds first and `hid-multitouch` re-binds ~0.2 s later. Suspected cause: the
-  Input Mode switch gets missed, or the state left over from a warm reboot out of Windows.
+- After a logout/login the kernel logs nothing at all for the cover: no disconnect, no reset (USB autosuspend
+  is off).
+
+### Cause (most likely)
+`hid-multitouch` sends mode-switch feature reports to the touchpad every time its input device is opened or
+closed (`mt_on_hid_hw_open` / `mt_on_hid_hw_close` → `mt_set_modes`: "report all" / "report nothing" plus
+latency mode). The Type Cover firmware doesn't reliably complete these, the same thing that makes it
+[stall suspend for 10 s](typecover-sleep-eio.md). A logout/login closes and reopens the touchpad several
+times in a row (your session → GDM login screen → your session), and sometimes it ends up in "report
+nothing". Boot goes through the same login-screen → session handover.
+
+### Fix: re-probe the touchpad at every login
+[`fixes/login/`](../fixes/login/): a oneshot system service, started with your user manager
+(`user@1000.service`, which restarts on every login). It waits until the GDM login screen session is gone,
+then unbinds and re-binds only the touchpad interface (`1-7:1.3`) from `usbhid`, the same thing the
+[sleep hook](typecover-sleep-eio.md) does after resume. The keyboard interfaces aren't touched.
+```sh
+sudo install -D -m 755 fixes/login/surface-typecover-reprobe /usr/local/libexec/surface-typecover-reprobe
+sudo install -m 644 fixes/login/surface-typecover-reprobe.service /etc/systemd/system/
+sudo restorecon /usr/local/libexec/surface-typecover-reprobe /etc/systemd/system/surface-typecover-reprobe.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now surface-typecover-reprobe.service
+```
+If your user ID isn't 1000 (`id -u`), change `WantedBy=user@1000.service` first. The touchpad works again
+a few seconds after login (`journalctl -b -u surface-typecover-reprobe` shows `re-probed Type Cover touchpad`).
+Tested on 4 logins in a row with no dead touchpad (before: 2 of 5).
 
 ## Symptom B: keys dead right after attaching
 Sometimes the touchpad works after attaching but the keys don't. 15–22 s later the cover
@@ -19,11 +45,10 @@ usb_submit_urb(ctrl) failed: -19
 On clean attaches there's no bounce. Probably the pogo-pin contacts. Cleaning them, or simply
 detaching and re-attaching instead of waiting, helps.
 
-## Possible fixes (not applied)
+## Other options (not applied)
 1. Add `hid-multitouch` to the initramfs so it binds before `hid-generic`:
    `/etc/dracut.conf.d/hid.conf` → `add_drivers+=" hid-multitouch "`, then `sudo dracut -f`
-2. A boot-time service that resets the cover's USB device
-3. The linux-surface kernel
+2. The linux-surface kernel
 
 How to diagnose: run `sudo libinput debug-events` while it's dead. No output means device/kernel; events mean the compositor.
 

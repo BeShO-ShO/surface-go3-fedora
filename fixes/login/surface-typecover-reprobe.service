@@ -1,0 +1,9 @@
+[Unit]
+Description=Re-probe Surface Type Cover touchpad after login (local fix)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/surface-typecover-reprobe
+
+[Install]
+WantedBy=user@1000.service

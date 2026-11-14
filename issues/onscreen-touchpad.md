@@ -23,3 +23,5 @@ The helper needs `/dev/uinput` without root:
 `sudo usermod -aG input $USER` (then log out and back in).
 
 Logs: `journalctl -o cat /usr/bin/gnome-shell | grep OnScreenTouchpad`
+
+Reported upstream: [GNOME 51 port](https://github.com/abiharbani/on-screen-touchpad/issues/3), [helper grabs the touchpad](https://github.com/abiharbani/on-screen-touchpad/issues/2).

@@ -1,0 +1,35 @@
+--- a/features/integrations/dashToDockIntegrationFeature.js
++++ b/features/integrations/dashToDockIntegrationFeature.js
+@@ -11,7 +11,7 @@
+ import { SmoothFollower, SmoothFollowerLane } from '../../utils/gestures/smoothFollower.js';
+ 
+ const SWIPE_UP_THRESHOLD = 40; // in logical pixels (this also scaled by the `dash-to-dock-integration-overview-threshold-factor` setting – default: 2)
+-const DOCK_HIDE_DELAY = 2 * 1000; // in milliseconds
++const DOCK_HIDE_DELAY = 4 * 1000; // in milliseconds (local patch: was 2 s, too short to pick an icon by touch)
+ const DASH_TO_DOCK_EXT_UUID = 'dash-to-dock@micxgx.gmail.com';
+ var DockState;
+ (function (DockState) {
+@@ -178,7 +178,8 @@
+         if (this._isDockInIntermediateState) {
+             this._isDockInIntermediateState = false;
+             if (state.lastMotionDirection?.direction === 'up' || Main.overview.visible) {
+-                this.dock._show();
++                // local patch: current Dash to Dock (v110) renamed _show() to showDock()
++                (this.dock.showDock ?? this.dock._show).call(this.dock);
+                 this._easeDockVisible();
+                 this._scheduleDelayedDockHide();
+             }
+@@ -205,7 +206,12 @@
+         this._hideDelay?.cancel();
+         this._hideDelay = Delay.ms(DOCK_HIDE_DELAY).then(() => {
+             if (!Main.overview.visible) {
+-                this.dock._hide();
++                // local patch: let Dash to Dock decide (intellihide, open icon menu, hover) instead of
++                // force-hiding; falls back to the old private API
++                if (typeof this.dock.updateDashVisibility === 'function')
++                    this.dock.updateDashVisibility();
++                else
++                    (this.dock.hideDock ?? this.dock._hide).call(this.dock);
+             }
+             this._hideDelay = undefined;
+         });
