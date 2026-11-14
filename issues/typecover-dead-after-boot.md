@@ -1,6 +1,6 @@
 # Type Cover touchpad dead after boot / keys dead right after attaching
 
-**Status:** ✅ Symptom A (touchpad dead after boot / login): login re-probe service ·
+**Status:** ✅ Symptom A (touchpad dead after boot / login): USB reset at login (testing) ·
 ⚠️ Symptom B (keys dead after attach): re-attach
 
 ## Symptom A: touchpad dead after boot or after logging out and back in
@@ -19,11 +19,14 @@ latency mode). The Type Cover firmware doesn't reliably complete these, the same
 times in a row (your session → GDM login screen → your session), and sometimes it ends up in "report
 nothing". Boot goes through the same login-screen → session handover.
 
-### Fix: re-probe the touchpad at every login
+### Fix: USB-reset the cover at every login
+When it's stuck, the touchpad sends **nothing**, not even on its raw `hidraw` node, while the keyboard keeps
+working. Unbinding and re-binding the driver doesn't wake it (tested); a USB port reset does, like a replug.
+
 [`fixes/login/`](../fixes/login/): a oneshot system service, started with your user manager
-(`user@1000.service`, which restarts on every login). It waits until the GDM login screen session is gone,
-then unbinds and re-binds only the touchpad interface (`1-7:1.3`) from `usbhid`, the same thing the
-[sleep hook](typecover-sleep-eio.md) does after resume. The keyboard interfaces aren't touched.
+(`user@1000.service`, which restarts on every login, including the first one after boot). It waits until the
+GDM login screen session is gone, then runs `usbreset 045e:09b5` (from `usbutils`). The keyboard drops out
+for ~2 s a few seconds after login.
 ```sh
 sudo install -D -m 755 fixes/login/surface-typecover-reprobe /usr/local/libexec/surface-typecover-reprobe
 sudo install -m 644 fixes/login/surface-typecover-reprobe.service /etc/systemd/system/
@@ -31,9 +34,12 @@ sudo restorecon /usr/local/libexec/surface-typecover-reprobe /etc/systemd/system
 sudo systemctl daemon-reload
 sudo systemctl enable --now surface-typecover-reprobe.service
 ```
-If your user ID isn't 1000 (`id -u`), change `WantedBy=user@1000.service` first. The touchpad works again
-a few seconds after login (`journalctl -b -u surface-typecover-reprobe` shows `re-probed Type Cover touchpad`).
-Tested on 4 logins in a row with no dead touchpad (before: 2 of 5).
+If your user ID isn't 1000 (`id -u`), change `WantedBy=user@1000.service` first.
+`journalctl -b -u surface-typecover-reprobe` shows `USB-reset Type Cover 001/NNN`.
+
+History: the first version only re-bound the driver. It looked fine over 4 logins, but the touchpad was
+dead on the next boot and a re-bind didn't bring it back; a `usbreset` did. Still being tested over more
+boots and logins.
 
 ## Symptom B: keys dead right after attaching
 Sometimes the touchpad works after attaching but the keys don't. 15–22 s later the cover
