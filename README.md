@@ -33,7 +33,7 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 | Issue | Status |
 |---|---|
 | [rEFInd dark theme, Windows black-screen handoff, shim `.sbat` warning, backup/restore](issues/refind-dual-boot.md) | ✅ |
-| [Clock 11 h off after dual boot](issues/dual-boot-clock.md) | ✅ |
+| [Clock 11 h off after dual boot](issues/dual-boot-clock.md) | ✅ (+ Windows `.reg` file) |
 | [Fedora 44 → 45 upgrade notes (GNOME 51 extension API breaks)](issues/fedora45-upgrade.md) | ✅ |
 
 ### Desktop
@@ -50,6 +50,7 @@ fixes/
 ├── login/                                  Type Cover USB reset at login (script + unit)
 ├── volume-rocker/                          intel-hid hold-repeat patch + DKMS install.sh
 ├── rotate/                                 restart iio-sensor-proxy after resume
+├── windows-clock/                          .reg files: make Windows keep the RTC in UTC
 ├── touchup/dash-to-dock-v110.patch         TouchUp ↔ Dash to Dock v110 fix
 ├── brightness/                          Smooth Brightness extension + install.sh
 ├── refind/                                 dark theme.conf, install/backup/restore scripts

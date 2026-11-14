@@ -3,7 +3,9 @@
 ## On-screen keyboard: Tabula OSK
 GNOME's built-in OSK only appears in touch mode and was too limited, so I wrote my own:
 **[Tabula OSK](https://github.com/BeShO-ShO/tabula-osk)**. It has a tablet layout, word suggestions,
-swipe typing, auto-show on touch, and supports GNOME 50/51.
+swipe typing, auto-show on touch, and supports GNOME 50/51. Version 1.5 (November 2026) added an emoji panel
+(☺ key left of the space bar), a paste button for recently copied text, a per-app "stay closed" list, and
+key repeat for held letters while swipe typing is on.
 
 Things learned while building it:
 - Surface hardware buttons (volume `Intel HID 5 button array`, `Power Button`, `Video Bus`) show
@@ -18,6 +20,17 @@ Things learned while building it:
   instead. Some apps (Ptyxis) only request the OSK from the second tap on.
 - The overview leaves the app behind it with its text focus, so don't auto-show there unless the search
   entry itself was tapped (fixed in Tabula OSK 1.4.1).
+- A Clutter actor's `notify::width` / `notify::height` only fire when the size is *set*, not when the
+  layout allocates it. To lay out content for the space a widget ends up with (the emoji grid), listen to
+  `notify::allocation` and read `actor.allocation`.
+- Never destroy a `Clutter.Text` that still has the input-method focus: the next
+  `Main.inputMethod.request_surrounding()` crashes gnome-shell (SIGSEGV in `clutter_text_get_buffer`).
+  Move the key focus away first. This was a long-standing "random" crash in my headless test runs.
+- Clipboard changes: `global.display.get_selection()` emits `owner-changed`; read the text with
+  `St.Clipboard`. Password managers tag what they copy with the `x-kde-passwordManagerHint` MIME type,
+  so that can be skipped. Don't show clipboard text on the lock screen (`Main.sessionMode.isLocked`).
+- Emoji (multi-code-point sequences) go in through `Main.inputMethod.commit()`; they can't be typed as key presses.
+- An app can be recognised for per-app rules with `Shell.WindowTracker.get_default().focus_app.get_id()`.
 - Type Cover keys dead right after attaching is a cover USB bounce, not the OSK.
   See [Type Cover issues](typecover-dead-after-boot.md).
 

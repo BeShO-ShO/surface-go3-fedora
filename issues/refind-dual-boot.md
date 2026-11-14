@@ -77,7 +77,11 @@ re-sign with your MOK key, and check with `sbverify`. Keep the original as `grub
 loaders exist, creates the "rEFInd Boot Manager" firmware entry (or moves it first in BootOrder), and runs
 `mokutil --import` if the cert isn't enrolled yet.
 
-> ⚠️ The backup contains your **private signing key** (`refind_local.key`). Keep the tarball private.
+> ⚠️ The backup contains your **private signing key** (`refind_local.key`). Keep the tarball private
+> (`make-backup.sh` now creates it with mode 600) and copy it off the device.
+
+Re-run `make-backup.sh` after changing anything on the ESP. My first backup predated the `.sbat` fix above,
+so a restore would have brought the unpatched `grubx64.efi` (and the shim warning) back.
 
 The MOK lives in firmware NVRAM, so reinstalling Fedora normally doesn't need a re-enroll.
 
