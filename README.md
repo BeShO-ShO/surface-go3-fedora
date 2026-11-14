@@ -20,7 +20,7 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 ### Hardware & power
 | Issue | Status |
 |---|---|
-| [Type Cover touchpad stalls suspend 10 s (`usbhid suspend error -5`)](issues/typecover-sleep-eio.md) | ✅ sleep hook |
+| [Type Cover touchpad stalls suspend 10 s (`usbhid suspend error -5`)](issues/typecover-sleep-eio.md) | ✅ sleep hook + reset on resume |
 | [Type Cover touchpad dead after boot / login, keys dead after attach](issues/typecover-dead-after-boot.md) | ✅ USB reset at login (testing) / ⚠️ re-attach |
 | [USB-C won't charge when plugged in after booting on battery (`ucsi_acpi PPM init failed`)](issues/charging-hotplug.md) | ⚠️ magnetic charger, or shut down + power on |
 | [Auto-brightness jumps around in dim light](issues/auto-brightness-pumping.md) | ✅ extension |
@@ -46,7 +46,7 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 ## Fix files
 ```
 fixes/
-├── sleep/50-surface-typecover-touchpad     systemd sleep hook → /usr/lib/systemd/system-sleep/
+├── sleep/                                  systemd sleep hook (→ /usr/lib/systemd/system-sleep/) + USB reset on resume
 ├── login/                                  Type Cover USB reset at login (script + unit)
 ├── volume-rocker/                          intel-hid hold-repeat patch + DKMS install.sh
 ├── rotate/                                 restart iio-sensor-proxy after resume

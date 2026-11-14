@@ -1,6 +1,6 @@
 # Type Cover touchpad stalls suspend for 10 s (`usbhid … suspend error -5`)
 
-**Status:** ✅ Fixed (workaround: sleep hook)
+**Status:** ✅ Fixed (workaround: sleep hook, plus a USB reset after resume)
 
 ## Symptom
 - Suspend takes ~10 s. Sometimes the laptop wakes on its own or won't wake.
@@ -41,8 +41,24 @@ To undo, delete the file.
 | drain, cover attached | 1.1–3 %/h | ~0.7 %/h |
 | drain, no cover | – | ~0.5 %/h |
 
-The cover works right away after resume. Spurious EC GPE (SCI) wakes still happen while charging,
+The cover usually works right away after resume. Spurious EC GPE (SCI) wakes still happen while charging,
 but the kernel handles them and goes back to sleep, so they're harmless.
+
+## Touchpad silent after some wakes
+On 2026-11-15 the touchpad came back dead after a resume even with the hook: the hook re-bound the
+driver cleanly (no kernel errors), but the cover sent no touchpad reports until it was re-plugged. This
+is the same state as [after boot or login](typecover-dead-after-boot.md), where a driver re-bind is not
+enough and only a USB reset wakes the cover.
+
+Fix: [`surface-typecover-resume.service`](../fixes/sleep/surface-typecover-resume.service) runs the login
+fix's reset script (`fixes/login/surface-typecover-reprobe`) after every resume. It is ordered after
+`suspend.target`, so it runs once the sleep hook has re-bound the interface. Cost: the Type Cover
+keyboard drops out for about 2 s on each wake.
+```sh
+sudo install -m 644 fixes/sleep/surface-typecover-resume.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable surface-typecover-resume.service
+```
+Installed 2026-11-15; still being watched over more sleeps.
 
 A proper fix would be a per-device kernel quirk that skips `mt_set_modes` on suspend for `045e:09b5`.
 

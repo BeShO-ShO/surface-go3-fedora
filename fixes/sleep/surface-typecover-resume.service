@@ -1,0 +1,11 @@
+[Unit]
+Description=USB-reset the Surface Type Cover after resume (local fix: touchpad silent after wake)
+# Runs after the sleep hook (50-surface-typecover-touchpad) has re-bound the touchpad interface
+After=suspend.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/surface-typecover-reprobe
+
+[Install]
+WantedBy=suspend.target
