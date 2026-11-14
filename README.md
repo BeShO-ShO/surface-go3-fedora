@@ -22,7 +22,7 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 |---|---|
 | [Type Cover touchpad stalls suspend 10 s (`usbhid suspend error -5`)](issues/typecover-sleep-eio.md) | ✅ sleep hook |
 | [Type Cover touchpad dead after boot / login, keys dead after attach](issues/typecover-dead-after-boot.md) | ✅ USB reset at login (testing) / ⚠️ re-attach |
-| [Won't charge when plugged in after booting on battery (`ucsi_acpi PPM init failed`)](issues/charging-hotplug.md) | ⚠️ boot with charger in |
+| [USB-C won't charge when plugged in after booting on battery (`ucsi_acpi PPM init failed`)](issues/charging-hotplug.md) | ⚠️ magnetic charger, or shut down + power on |
 | [Auto-brightness jumps around in dim light](issues/auto-brightness-pumping.md) | ✅ extension |
 | [Auto-rotate off with cover attached / stuck after resume](issues/auto-rotate.md) | ℹ️ / ✅ |
 | [Volume rocker doesn't repeat when held (`intel-hid`)](issues/volume-rocker-hold.md) | ⚠️ |
