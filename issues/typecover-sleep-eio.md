@@ -53,7 +53,8 @@ enough and only a USB reset wakes the cover.
 Fix: [`surface-typecover-resume.service`](../fixes/sleep/surface-typecover-resume.service) runs the login
 fix's reset script (`fixes/login/surface-typecover-reprobe`) after every resume. It is ordered after
 `suspend.target`, so it runs once the sleep hook has re-bound the interface. Cost: the Type Cover
-keyboard drops out for about 2 s on each wake.
+keyboard drops out for about 4 s on each wake (since 2026-11-16 the script also re-enumerates the
+cover after the reset, see the login page).
 ```sh
 sudo install -m 644 fixes/sleep/surface-typecover-resume.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable surface-typecover-resume.service

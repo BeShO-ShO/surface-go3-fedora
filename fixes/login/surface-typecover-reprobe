@@ -27,5 +27,19 @@ for d in /sys/bus/usb/devices/*; do
     [ "$(cat "$d/idVendor" 2>/dev/null):$(cat "$d/idProduct" 2>/dev/null)" = "045e:09b5" ] || continue
     b=$(printf '%03d/%03d' "$(cat "$d/busnum")" "$(cat "$d/devnum")")
     /usr/bin/usbreset "$b" >/dev/null && echo "USB-reset Type Cover $b"
+    # 2026-11-16: on one boot the reset alone left the touchpad silent; a full
+    # software replug (de-authorize + re-authorize = re-enumeration) revived it.
+    sleep 1
+    echo 0 > "$d/authorized" 2>/dev/null
+    sleep 2
+    # the cover may drop off the bus by itself meanwhile (it then comes back
+    # already authorized), so retry for a few seconds instead of failing
+    j=0
+    while [ $j -lt 10 ]; do
+        if [ "$(cat "$d/authorized" 2>/dev/null)" = 1 ] || echo 1 > "$d/authorized" 2>/dev/null; then
+            echo "Re-enumerated Type Cover ${d##*/}"; break
+        fi
+        sleep 1; j=$((j + 1))
+    done
 done
 exit 0
