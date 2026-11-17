@@ -1,6 +1,6 @@
 # Type Cover touchpad stalls suspend for 10 s (`usbhid … suspend error -5`)
 
-**Status:** ✅ Fixed (workaround: sleep hook, plus a USB reset after resume)
+**Status:** ✅ Fixed (workaround: sleep hook, plus a re-enumeration of the cover after resume)
 
 ## Symptom
 - Suspend takes ~10 s. Sometimes the laptop wakes on its own or won't wake.
@@ -48,13 +48,13 @@ but the kernel handles them and goes back to sleep, so they're harmless.
 On 2026-11-15 the touchpad came back dead after a resume even with the hook: the hook re-bound the
 driver cleanly (no kernel errors), but the cover sent no touchpad reports until it was re-plugged. This
 is the same state as [after boot or login](typecover-dead-after-boot.md), where a driver re-bind is not
-enough and only a USB reset wakes the cover.
+enough and only a USB-level reset or re-enumeration wakes the cover.
 
 Fix: [`surface-typecover-resume.service`](../fixes/sleep/surface-typecover-resume.service) runs the login
 fix's reset script (`fixes/login/surface-typecover-reprobe`) after every resume. It is ordered after
 `suspend.target`, so it runs once the sleep hook has re-bound the interface. Cost: the Type Cover
-keyboard drops out for about 4 s on each wake (since 2026-11-16 the script also re-enumerates the
-cover after the reset, see the login page).
+keyboard drops out for about 1 s on each wake. (On 2026-11-16 the script did a USB reset and then a
+re-enumeration, which made it 6–16 s; since 2026-11-17 it only re-enumerates, see the login page.)
 ```sh
 sudo install -m 644 fixes/sleep/surface-typecover-resume.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable surface-typecover-resume.service

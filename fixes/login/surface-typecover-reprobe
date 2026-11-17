@@ -9,7 +9,7 @@
 # session handover can leave it stuck. Re-binding the driver does NOT wake it;
 # a USB port reset (like a replug) does.
 # Run at each login (wanted by user@.service): wait for the login screen to let go
-# of the devices, then USB-reset the cover (keyboard drops out for ~2 s).
+# of the devices, then re-enumerate the cover (keyboard drops out ~1-2 s).
 # To undo: systemctl disable surface-typecover-reprobe.service and delete it + this file.
 
 # Wait (max 30 s) until the login screen session (class greeter) is gone; GDM's
@@ -23,23 +23,22 @@ while [ $i -lt 30 ] && greeter; do
 done
 sleep 1
 
+# 2026-11-17: replug only (de-authorize + re-authorize = full re-enumeration,
+# like pulling the cover off). The earlier usbreset step is gone: the replug
+# alone revived the touchpad when usbreset didn't (2026-11-16), and doing both
+# kept the keyboard out for 6-16 s after a wake.
 for d in /sys/bus/usb/devices/*; do
     [ "$(cat "$d/idVendor" 2>/dev/null):$(cat "$d/idProduct" 2>/dev/null)" = "045e:09b5" ] || continue
-    b=$(printf '%03d/%03d' "$(cat "$d/busnum")" "$(cat "$d/devnum")")
-    /usr/bin/usbreset "$b" >/dev/null && echo "USB-reset Type Cover $b"
-    # 2026-11-16: on one boot the reset alone left the touchpad silent; a full
-    # software replug (de-authorize + re-authorize = re-enumeration) revived it.
-    sleep 1
     echo 0 > "$d/authorized" 2>/dev/null
-    sleep 2
+    sleep 0.5
     # the cover may drop off the bus by itself meanwhile (it then comes back
-    # already authorized), so retry for a few seconds instead of failing
+    # already authorized), so retry briefly instead of failing
     j=0
-    while [ $j -lt 10 ]; do
+    while [ $j -lt 20 ]; do
         if [ "$(cat "$d/authorized" 2>/dev/null)" = 1 ] || echo 1 > "$d/authorized" 2>/dev/null; then
             echo "Re-enumerated Type Cover ${d##*/}"; break
         fi
-        sleep 1; j=$((j + 1))
+        sleep 0.5; j=$((j + 1))
     done
 done
 exit 0

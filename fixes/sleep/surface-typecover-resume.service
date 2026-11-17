@@ -1,5 +1,5 @@
 [Unit]
-Description=USB-reset the Surface Type Cover after resume (local fix: touchpad silent after wake)
+Description=Re-enumerate the Surface Type Cover after resume (local fix: touchpad silent after wake)
 # Runs after the sleep hook (50-surface-typecover-touchpad) has re-bound the touchpad interface
 After=suspend.target
 
