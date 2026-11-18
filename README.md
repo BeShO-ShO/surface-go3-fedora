@@ -20,8 +20,8 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 ### Hardware & power
 | Issue | Status |
 |---|---|
-| [Type Cover touchpad stalls suspend 10 s (`usbhid suspend error -5`)](issues/typecover-sleep-eio.md) | ✅ sleep hook + reset on resume |
-| [Type Cover touchpad dead after boot / login, keys dead after attach](issues/typecover-dead-after-boot.md) | ✅ re-enumeration at login (testing) / ⚠️ re-attach |
+| [Type Cover touchpad stalls suspend 10 s (`usbhid suspend error -5`)](issues/typecover-sleep-eio.md) | ✅ HID-BPF fix |
+| [Type Cover touchpad / Caps Lock light dead after boot / login, keys dead after attach](issues/typecover-dead-after-boot.md) | ✅ HID-BPF fix / ⚠️ re-attach |
 | [USB-C won't charge when plugged in after booting on battery (`ucsi_acpi PPM init failed`)](issues/charging-hotplug.md) | ⚠️ magnetic charger, or shut down + power on |
 | [Auto-brightness jumps around in dim light](issues/auto-brightness-pumping.md) | ✅ extension |
 | [Auto-rotate off with cover attached / stuck after resume](issues/auto-rotate.md) | ℹ️ / ✅ |
@@ -46,8 +46,8 @@ Status: ✅ fixed / worked around · ⚠️ open · ℹ️ not a bug
 ## Fix files
 ```
 fixes/
-├── sleep/                                  systemd sleep hook (→ /usr/lib/systemd/system-sleep/) + cover re-enumeration on resume
-├── login/                                  Type Cover re-enumeration at login (script + unit)
+├── hid-bpf/                                Type Cover touchpad HID-BPF fix (dead touchpad/Caps Lock, 10 s suspend) + install.sh
+├── superseded/                             older Type Cover workarounds (sleep hook, login/resume resets), kept for reference
 ├── volume-rocker/                          intel-hid hold-repeat patch + DKMS install.sh
 ├── rotate/                                 restart iio-sensor-proxy after resume
 ├── windows-clock/                          .reg files: make Windows keep the RTC in UTC
