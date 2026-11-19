@@ -34,8 +34,8 @@ gsettings set org.gnome.desktop.peripherals.keyboard delay 300           # ms be
 gsettings set org.gnome.desktop.peripherals.keyboard repeat-interval 60  # ms between steps
 ```
 The same sliders are in Settings → Accessibility → Typing → Repeat Keys. Don't set the delay much
-below ~150 ms: a normal keypress lasts longer than that, so typing produces doubled letters (60 ms
-did). Undo with `gsettings reset org.gnome.desktop.peripherals.keyboard delay` (and `repeat-interval`).
+below ~150 ms: a normal keypress lasts longer than that, so typing produces doubled letters.
+Undo with `gsettings reset org.gnome.desktop.peripherals.keyboard delay` (and `repeat-interval`).
 
 **Notes**
 - `modinfo intel-hid` should show `filename: …/extra/intel-hid.ko.xz` and your key as `signer`.
