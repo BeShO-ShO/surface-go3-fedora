@@ -16,8 +16,7 @@ if [ "${1:-}" = "--remove" ]; then
     gnome-extensions disable "$UUID" 2>/dev/null || true
     set_enabled "$(enabled | python3 -c "import sys,ast; l=ast.literal_eval(sys.stdin.read().replace('@as ','')); print([x for x in l if x!='$UUID'])")"
     rm -rf "$DEST"
-    gsettings set $POWER ambient-enabled true
-    echo "Removed. GNOME's own Automatic Screen Brightness is back on."
+    echo "Removed. GNOME's own Automatic Screen Brightness works as before (unsmoothed)."
     exit 0
 fi
 
@@ -29,8 +28,8 @@ fi
 mkdir -p "$DEST"
 cp "$SRC"/metadata.json "$SRC"/extension.js "$DEST"/
 
-# GNOME's ambient brightness would compete for the sensor; ours replaces it
-gsettings set $POWER ambient-enabled false
+# GNOME's Automatic Screen Brightness switch turns the extension on/off
+gsettings set $POWER ambient-enabled true
 
 case "$(enabled)" in
     *"'$UUID'"*) ;;
@@ -41,4 +40,4 @@ gnome-extensions enable "$UUID" 2>/dev/null || true
 
 echo "Installed to $DEST"
 echo "Log out and back in to load it (Wayland can't reload extensions live)."
-echo "Then set the brightness slider once to how bright you like it — 50% is neutral."
+echo "The slider moves with auto; drag it to make auto brighter or dimmer from there."

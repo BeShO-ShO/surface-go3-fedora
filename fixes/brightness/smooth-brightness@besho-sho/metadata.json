@@ -1,10 +1,15 @@
 {
   "uuid": "smooth-brightness@besho-sho",
   "name": "Smooth Brightness",
-  "description": "Automatic screen brightness from the ambient light sensor, without the jumps. Filters sensor noise, fades smoothly, turns around mid-fade when the light changes, and uses the full 1-100% range. The brightness slider sets how bright you like it.",
-  "version": 1,
-  "version-name": "1.0",
-  "shell-version": ["51"],
-  "session-modes": ["user", "unlock-dialog"],
+  "description": "Automatic screen brightness without the jumps, and the brightness slider moves with it. Filters sensor noise, does one smooth 5-second fade per change (turning around mid-fade if the light changes), uses a fixed curve from 1% in darkness to 100% in bright light, and remembers how far above or below auto you drag the slider. On/off with GNOME's Automatic Screen Brightness switch.",
+  "version": 3,
+  "version-name": "3.0",
+  "shell-version": [
+    "51"
+  ],
+  "session-modes": [
+    "user",
+    "unlock-dialog"
+  ],
   "url": "https://github.com/BeShO-ShO/surface-go3-fedora"
 }

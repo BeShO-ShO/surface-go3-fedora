@@ -1,15 +1,23 @@
-// Smooth Brightness — automatic screen brightness without the jumps.
+// Smooth Brightness — automatic screen brightness that moves the slider with it.
 //
-// GNOME 51's BrightnessManager has an "auto brightness target" hook that
-// gnome-settings-daemon normally feeds. This extension feeds it instead, with:
-//   - a short median filter on the light sensor (drops hands/shadows/flicker)
-//   - one smooth fade per change, which turns around mid-fade if the light moves
-//   - the full 1–100 % range: darkness -> 1 %, LUX_FULL and brighter -> 100 %
-//   - the brightness slider as your preference (50 % = neutral; higher bends the
-//     curve brighter, lower dimmer) — GNOME saves it across restarts itself
-// Idle-dim, brightness keys and the slider all keep working natively.
+// With "Automatic Screen Brightness" on (Settings), this extension:
+//   - reads the ambient light sensor (iio-sensor-proxy) and works out an auto
+//     level on a fixed log-lux curve: ~1 % in darkness, ~28 % at 7 lux,
+//     ~66 % at 150 lux, 100 % at 2000 lux and above
+//   - filters it (2 s median), ignores changes under 6 points, and moves to a
+//     new level in ONE 5 s fade that turns around mid-fade if the light changes
+//   - moves GNOME's brightness slider along with it, so the slider always shows
+//     the real brightness
+//   - when you drag the slider (or press brightness keys) it remembers how far
+//     you are above/below auto, and keeps that offset as the light changes —
+//     so you can brighten a dark room or dim a bright one and auto keeps working
+// With the switch off, brightness is plain manual GNOME.
 //
-// Debug log: touch ~/.config/smooth-brightness/debug, then
+// It replaces gnome-settings-daemon's auto-brightness maths (linear in lux and
+// re-anchored on every slider touch and idle-dim, which made it jumpy and
+// drift), but keeps its on/off switch. Idle-dim and keys work as usual.
+//
+// Debug log: touch ~/.config/smooth-brightness/debug, log out and in, then
 //   journalctl --user -f -o cat /usr/bin/gnome-shell | grep smooth-brightness
 //
 // SPDX-License-Identifier: MIT
@@ -18,20 +26,20 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import {Extension, InjectionManager} from 'resource:///org/gnome/shell/extensions/extension.js';
+import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const SAMPLE_MS = 500;        // sensor sample interval
 const MEDIAN_S = 2.0;         // median window (seconds)
-const SETTLE_S = 0;           // extra steady time before starting a fade
-const SETTLE_BAND = 0.03;     // "steady" = target within this of the reference
 const DEADBAND = 0.06;        // ignore target changes smaller than this
 const FADE_S = 5.0;           // fade duration
 const FADE_STEP_MS = 50;
 const MIN_LEVEL = 0.01;       // 0 turns many panels' backlight fully off
-const LUX_FULL = 2000;        // this much light and above -> 100 %
-const GAMMA_RANGE = 4;        // slider 0 -> gamma 4 (dim), 1 -> gamma 1/4 (bright)
+const LUX_FULL = 2000;        // this much light and above -> 100 % auto
 
-const DEBUG_FILE = GLib.build_filenamev([GLib.get_user_config_dir(), 'smooth-brightness', 'debug']);
+const POWER_SCHEMA = 'org.gnome.settings-daemon.plugins.power';
+const CONFIG_DIR = GLib.build_filenamev([GLib.get_user_config_dir(), 'smooth-brightness']);
+const DEBUG_FILE = GLib.build_filenamev([CONFIG_DIR, 'debug']);
+const OFFSET_FILE = GLib.build_filenamev([CONFIG_DIR, 'offset']);
 
 export default class SmoothBrightnessExtension extends Extension {
     enable() {
@@ -40,22 +48,26 @@ export default class SmoothBrightnessExtension extends Extension {
             return;
 
         this._debug = GLib.file_test(DEBUG_FILE, GLib.FileTest.EXISTS);
-        this._level = null;       // what we drive the backlight to (0..1)
         this._hist = [];
         this._fade = null;
-        this._settleRef = null;
-        this._settleSince = 0;
-        this._patchedProto = null;
-        this._injections = new InjectionManager();
+        this._level = null;       // brightness we are driving (0..1)
+        this._offset = this._loadOffset();
 
-        this._patch();
-        this._mgr.connectObject(
-            'changed', () => {
-                this._patch();
-                this._kick();
-            },
-            'user-update', () => this._onSliderMoved(),
-            this);
+        // gnome-settings-daemon still sends its own auto target over D-Bus;
+        // swallow it (we do the auto part) and keep GNOME in "slider = backlight"
+        // mode by reporting -1.
+        const proto = Object.getPrototypeOf(this._mgr);
+        this._abDesc = Object.getOwnPropertyDescriptor(proto, 'autoBrightnessTarget');
+        Object.defineProperty(this._mgr, 'autoBrightnessTarget', {
+            configurable: true,
+            get: () => -1,
+            set: _v => {},
+        });
+        this._abDesc.set.call(this._mgr, -1);
+
+        this._power = new Gio.Settings({schema_id: POWER_SCHEMA});
+        this._power.connectObject('changed::ambient-enabled', () => this._onSwitch(), this);
+        this._mgr.connectObject('user-update', () => this._onUserChange(), this);
 
         this._cancellable = new Gio.Cancellable();
         Gio.DBusProxy.new_for_bus(
@@ -87,27 +99,36 @@ export default class SmoothBrightnessExtension extends Extension {
         this._cancellable = null;
         if (this._tickId)
             GLib.source_remove(this._tickId);
-        if (this._fadeId)
-            GLib.source_remove(this._fadeId);
-        this._tickId = this._fadeId = 0;
+        this._tickId = 0;
+        this._stopFade();
+        if (this._saveId)
+            GLib.source_remove(this._saveId);
+        this._saveId = 0;
         if (this._sensor) {
             this._sensor.disconnectObject(this);
             if (this._sensor.g_name_owner)
                 this._sensor.call('ReleaseLight', null, Gio.DBusCallFlags.NONE, -1, null, null);
             this._sensor = null;
         }
+        this._power.disconnectObject(this);
+        this._power = null;
         this._mgr.disconnectObject(this);
-        this._injections.clear();
-        this._injections = null;
-        this._level = null;
-        // hand control back to GNOME: brightness follows the slider again
-        this._mgr.autoBrightnessTarget = -1;
+        // back to GNOME's own accessor; the slider keeps the current brightness
+        delete this._mgr.autoBrightnessTarget;
         this._mgr = null;
     }
 
     _log(msg) {
         if (this._debug)
             console.log(`smooth-brightness: ${msg}`);
+    }
+
+    _pct(v) {
+        return `${(v * 100).toFixed(0)}%`;
+    }
+
+    _active() {
+        return this._power?.get_boolean('ambient-enabled') && !!this._mgr.globalScale;
     }
 
     _claim() {
@@ -122,66 +143,79 @@ export default class SmoothBrightnessExtension extends Extension {
         });
     }
 
-    // Make every monitor scale use our level instead of slider/auto target.
-    _patch() {
-        const scale = this._mgr.scales[0];
-        if (!scale)
-            return;
-        const proto = Object.getPrototypeOf(scale);
-        if (proto === this._patchedProto)
-            return;
-        this._injections.clear();
-        const ext = this;
-        this._injections.overrideMethod(proto, 'setBacklight', orig => function (brightness) {
-            if (ext._level !== null) {
-                const max = ext._mgr.dimming ? ext._mgr._dimmingTarget : 1.0;
-                brightness = Math.min(max, ext._level);
+    // ---- offset (how far the user wants to be above/below auto) ----
+
+    _loadOffset() {
+        try {
+            const [, bytes] = GLib.file_get_contents(OFFSET_FILE);
+            const v = parseFloat(new TextDecoder().decode(bytes));
+            return Number.isFinite(v) ? Math.clamp(v, -1, 1) : 0;
+        } catch {
+            return 0;
+        }
+    }
+
+    _saveOffsetSoon() {
+        if (this._saveId)
+            GLib.source_remove(this._saveId);
+        this._saveId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, () => {
+            this._saveId = 0;
+            try {
+                GLib.mkdir_with_parents(CONFIG_DIR, 0o755);
+                GLib.file_set_contents(OFFSET_FILE, `${this._offset.toFixed(4)}\n`);
+            } catch (e) {
+                console.warn(`smooth-brightness: can't save offset: ${e.message}`);
             }
-            return orig.call(this, brightness);
+            return GLib.SOURCE_REMOVE;
         });
-        this._patchedProto = proto;
     }
 
-    // Ask GNOME to re-apply brightness (calls our patched setBacklight).
-    _kick() {
-        if (this._level !== null && this._mgr)
-            this._mgr.autoBrightnessTarget = this._level;
-    }
+    // ---- brightness ----
 
-    _currentBacklight() {
-        const scale = this._mgr.scales[0];
-        const bl = scale?._getBacklights?.()[0];
-        if (!bl || bl.brightnessMax <= bl.brightnessMin)
-            return null;
-        return (bl.brightness - bl.brightnessMin) / (bl.brightnessMax - bl.brightnessMin);
-    }
-
-    _gamma() {
-        const s = this._mgr.globalScale?.value ?? 0.5;
-        return GAMMA_RANGE ** (1 - 2 * s);
-    }
-
-    _target() {
-        const n = this._hist.length;
-        const sorted = [...this._hist].sort((a, b) => a - b);
-        const med = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
-        const frac = Math.clamp(med / Math.log10(LUX_FULL + 1), 0, 1);
-        return MIN_LEVEL + (1 - MIN_LEVEL) * frac ** this._gamma();
-    }
-
-    _medianLux() {
+    _auto() {
         const s = [...this._hist].sort((a, b) => a - b);
-        return 10 ** s[Math.floor(s.length / 2)] - 1;
+        const n = s.length;
+        const med = n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
+        const frac = Math.clamp(med / Math.log10(LUX_FULL + 1), 0, 1);
+        return MIN_LEVEL + (1 - MIN_LEVEL) * frac;
     }
 
-    _onSliderMoved() {
-        // the slider is the preference: apply it at once, no fade
-        if (this._level === null || !this._hist.length)
+    _desired() {
+        return Math.clamp(this._auto() + this._offset, MIN_LEVEL, 1);
+    }
+
+    // Move GNOME's slider to `level` and apply it, without it counting as a
+    // user change (no OSD popup, no 'user-update').
+    _apply(level) {
+        const mgr = this._mgr;
+        const gs = mgr.globalScale;
+        if (!gs)
+            return;
+        mgr._inhibitUpdates = true;
+        try {
+            gs.value = level;
+        } finally {
+            mgr._inhibitUpdates = false;
+        }
+        mgr._globalScaleChanged = true;
+        mgr._sync({showOSD: false});
+    }
+
+    _onUserChange() {
+        // slider dragged or brightness keys: remember the offset from auto
+        if (!this._active() || !this._hist.length)
             return;
         this._stopFade();
-        this._level = this._target();
-        this._log(`slider ${(this._mgr.globalScale.value * 100).toFixed(0)}% -> level ${(this._level * 100).toFixed(0)}%`);
-        this._kick();
+        this._level = this._mgr.globalScale.value;
+        this._offset = this._level - this._auto();
+        this._log(`user set ${this._pct(this._level)} (auto ${this._pct(this._auto())}, offset ${(this._offset * 100).toFixed(0)})`);
+        this._saveOffsetSoon();
+    }
+
+    _onSwitch() {
+        this._stopFade();
+        this._level = null;   // re-sync from the slider on next tick
+        this._log(`auto ${this._active() ? 'on' : 'off'}`);
     }
 
     _tick() {
@@ -194,64 +228,53 @@ export default class SmoothBrightnessExtension extends Extension {
         while (this._hist.length > maxLen)
             this._hist.shift();
 
-        const target = this._target();
-        const now = GLib.get_monotonic_time() / 1e6;
+        if (!this._active())
+            return;
 
         if (this._level === null) {
-            // take over from wherever the backlight is, then fade if needed
-            this._level = this._currentBacklight() ?? target;
-            this._log(`start: lux ${lux.toFixed(1)} level ${(this._level * 100).toFixed(0)}%`);
-            this._kick();
+            // start from wherever the slider is now
+            this._level = this._mgr.globalScale.value;
+            this._log(`start: lux ${lux.toFixed(1)}, level ${this._pct(this._level)}, offset ${(this._offset * 100).toFixed(0)}`);
         }
 
+        const target = this._desired();
         if (this._fade) {
             // light moved on mid-fade -> bend toward the new target
-            if (Math.abs(target - this._fade.end) >= DEADBAND) {
+            if (Math.abs(target - this._fade.end) >= DEADBAND)
                 this._startFade(target, true);
-                this._settleRef = target;
-                this._settleSince = now;
-            }
             return;
         }
-
-        if (this._settleRef === null || Math.abs(target - this._settleRef) > SETTLE_BAND) {
-            this._settleRef = target;
-            this._settleSince = now;
-            return;
-        }
-        if (now - this._settleSince < SETTLE_S)
-            return;
         if (Math.abs(target - this._level) >= DEADBAND)
             this._startFade(target, false);
     }
 
     _startFade(end, retarget) {
-        this._log(`${retarget ? 'retarget' : 'fade'} ${(this._level * 100).toFixed(0)}% -> ${(end * 100).toFixed(0)}% (lux ${this._medianLux().toFixed(1)})`);
+        this._log(`${retarget ? 'retarget' : 'fade'} ${this._pct(this._level)} -> ${this._pct(end)} (auto ${this._pct(this._auto())})`);
         this._fade = {
             start: this._level, end, step: 0,
             n: Math.max(1, Math.round(FADE_S * 1000 / FADE_STEP_MS)),
             easeOut: retarget,  // keeps moving at once when turning
         };
-        if (!this._fadeId) {
-            this._fadeId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, FADE_STEP_MS, () => {
-                const f = this._fade;
-                if (!f) {
-                    this._fadeId = 0;
-                    return GLib.SOURCE_REMOVE;
-                }
-                f.step++;
-                let x = f.step / f.n;
-                x = f.easeOut ? x * (2 - x) : x * x * (3 - 2 * x);
-                this._level = f.start + (f.end - f.start) * x;
-                this._kick();
-                if (f.step >= f.n) {
-                    this._fade = null;
-                    this._fadeId = 0;
-                    return GLib.SOURCE_REMOVE;
-                }
-                return GLib.SOURCE_CONTINUE;
-            });
-        }
+        if (this._fadeId)
+            return;
+        this._fadeId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, FADE_STEP_MS, () => {
+            const f = this._fade;
+            if (!f) {
+                this._fadeId = 0;
+                return GLib.SOURCE_REMOVE;
+            }
+            f.step++;
+            let x = f.step / f.n;
+            x = f.easeOut ? x * (2 - x) : x * x * (3 - 2 * x);
+            this._level = f.start + (f.end - f.start) * x;
+            this._apply(this._level);
+            if (f.step >= f.n) {
+                this._fade = null;
+                this._fadeId = 0;
+                return GLib.SOURCE_REMOVE;
+            }
+            return GLib.SOURCE_CONTINUE;
+        });
     }
 
     _stopFade() {
